@@ -102,12 +102,47 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content={"detail": exc.detail},
     )
 
+from google.genai import errors as genai_errors
+
+@app.exception_handler(genai_errors.APIError)
+async def gemini_api_error_handler(request: Request, exc: genai_errors.APIError):
+    logger.error(f"Gemini API Error [{exc.code}]: {str(exc)}")
+    if exc.code in (400, 401, 403):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "Gemini API Authentication Failed: Invalid API key. Please check your GEMINI_API_KEY in backend/.env"},
+        )
+    if exc.code == 429:
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "Gemini API rate limit or quota exceeded. Please wait a moment or check your Google AI Studio quota."},
+        )
+    return JSONResponse(
+        status_code=502,
+        content={"detail": f"Gemini API Error: {str(exc)}"},
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, (HTTPException, StarletteHTTPException)):
         return JSONResponse(
             status_code=exc.status_code,
             content={"detail": exc.detail},
+        )
+    if isinstance(exc, genai_errors.APIError):
+        if exc.code in (400, 401, 403):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "Gemini API Authentication Failed: Invalid API key. Please check your GEMINI_API_KEY in backend/.env"},
+            )
+        if exc.code == 429:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Gemini API rate limit or quota exceeded. Please wait a moment or check your Google AI Studio quota."},
+            )
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"Gemini API Error: {str(exc)}"},
         )
     if isinstance(exc, openai.AuthenticationError):
         return JSONResponse(

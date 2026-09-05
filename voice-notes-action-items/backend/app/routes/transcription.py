@@ -26,7 +26,8 @@ async def transcribe(request: Request, audio: UploadFile = File(...)):
             temp_file.write(chunk)
         temp_file.close()
         
-        transcript = transcribe_audio_file(temp_file.name)
+        content_type = audio.content_type or "audio/webm"
+        transcript = transcribe_audio_file(temp_file.name, mime_type=content_type)
         return {"transcript": transcript}
     finally:
         if os.path.exists(temp_file.name):
