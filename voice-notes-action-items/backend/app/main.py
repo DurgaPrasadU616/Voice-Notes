@@ -1,18 +1,9 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from dotenv import load_dotenv
+import sys
+import traceback
 import os
 import time
 import logging
 import uuid
-
-from slowapi import _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-
-from app.database import engine, Base
-from app.routes import transcription, actions, tasks
-from app.limiter import limiter
 
 # Setup logging
 logging.basicConfig(
@@ -21,11 +12,35 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Load environment variables from .env file
-load_dotenv()
+try:
+    from fastapi import FastAPI, Request, HTTPException
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    from dotenv import load_dotenv
 
-# Create SQLite tables
-Base.metadata.create_all(bind=engine)
+    from slowapi import _rate_limit_exceeded_handler
+    from slowapi.errors import RateLimitExceeded
+
+    from app.database import engine, Base
+    from app.routes import transcription, actions, tasks
+    from app.limiter import limiter
+
+    # Load environment variables from .env file
+    load_dotenv()
+
+    # Create SQLite tables
+    Base.metadata.create_all(bind=engine)
+except Exception as e:
+    sys.stderr.write(f"\n[FATAL STARTUP ERROR] Failed during module initialization: {e}\n")
+    traceback.print_exc(file=sys.stderr)
+    sys.stderr.flush()
+    raise
+
+try:
+    import openai
+except ImportError:
+    openai = None
 
 app = FastAPI(title="Voice Notes API")
 app.state.limiter = limiter
@@ -62,35 +77,30 @@ async def log_requests(request: Request, call_next):
         logger.error(f"Request failed: {req_id} - Latency: {process_time:.2f}ms - Error: {str(e)}")
         raise
 
-import openai
-from fastapi import HTTPException
+if openai is not None:
+    @app.exception_handler(openai.AuthenticationError)
+    async def openai_auth_error_handler(request: Request, exc: openai.AuthenticationError):
+        logger.error(f"OpenAI Authentication Error: {str(exc)}")
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "OpenAI Authentication Failed: Invalid or missing API key. Please check your OPENAI_API_KEY in backend/.env"},
+        )
 
-# OpenAI and Global Error Handlers
-@app.exception_handler(openai.AuthenticationError)
-async def openai_auth_error_handler(request: Request, exc: openai.AuthenticationError):
-    logger.error(f"OpenAI Authentication Error: {str(exc)}")
-    return JSONResponse(
-        status_code=401,
-        content={"detail": "OpenAI Authentication Failed: Invalid or missing API key. Please check your OPENAI_API_KEY in backend/.env"},
-    )
+    @app.exception_handler(openai.RateLimitError)
+    async def openai_rate_limit_handler(request: Request, exc: openai.RateLimitError):
+        logger.error(f"OpenAI Rate Limit Error: {str(exc)}")
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "OpenAI account credit balance is exhausted ($0 balance). Please add credits to your OpenAI account at https://platform.openai.com/settings/organization/billing to continue using Whisper & GPT."},
+        )
 
-@app.exception_handler(openai.RateLimitError)
-async def openai_rate_limit_handler(request: Request, exc: openai.RateLimitError):
-    logger.error(f"OpenAI Rate Limit Error: {str(exc)}")
-    return JSONResponse(
-        status_code=429,
-        content={"detail": "OpenAI account credit balance is exhausted ($0 balance). Please add credits to your OpenAI account at https://platform.openai.com/settings/organization/billing to continue using Whisper & GPT."},
-    )
-
-@app.exception_handler(openai.OpenAIError)
-async def openai_error_handler(request: Request, exc: openai.OpenAIError):
-    logger.error(f"OpenAI API Error: {str(exc)}")
-    return JSONResponse(
-        status_code=502,
-        content={"detail": f"OpenAI Service Error: {str(exc)}"},
-    )
-
-from starlette.exceptions import HTTPException as StarletteHTTPException
+    @app.exception_handler(openai.OpenAIError)
+    async def openai_error_handler(request: Request, exc: openai.OpenAIError):
+        logger.error(f"OpenAI API Error: {str(exc)}")
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"OpenAI Service Error: {str(exc)}"},
+        )
 
 @app.exception_handler(StarletteHTTPException)
 async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
