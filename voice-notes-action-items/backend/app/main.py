@@ -75,7 +75,7 @@ async def openai_rate_limit_handler(request: Request, exc: openai.RateLimitError
     logger.error(f"OpenAI Rate Limit Error: {str(exc)}")
     return JSONResponse(
         status_code=429,
-        content={"detail": "OpenAI rate limit or quota exceeded. Please check your OpenAI account billing."},
+        content={"detail": "OpenAI account credit balance is exhausted ($0 balance). Please add credits to your OpenAI account at https://platform.openai.com/settings/organization/billing to continue using Whisper & GPT."},
     )
 
 @app.exception_handler(openai.OpenAIError)
@@ -117,7 +117,7 @@ async def global_exception_handler(request: Request, exc: Exception):
     if isinstance(exc, openai.RateLimitError):
         return JSONResponse(
             status_code=429,
-            content={"detail": "OpenAI rate limit or quota exceeded. Please check your OpenAI account billing."},
+            content={"detail": "OpenAI account credit balance is exhausted ($0 balance). Please add credits to your OpenAI account at https://platform.openai.com/settings/organization/billing to continue using Whisper & GPT."},
         )
     if isinstance(exc, openai.OpenAIError):
         return JSONResponse(
