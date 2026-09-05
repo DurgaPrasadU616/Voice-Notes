@@ -31,12 +31,16 @@ app = FastAPI(title="Voice Notes API")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Enable CORS restricted to FRONTEND_URL
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+# Enable CORS
+raw_frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
+origins = [url.strip().rstrip("/") for url in raw_frontend_url.split(",") if url.strip()]
+if "http://localhost:5173" not in origins and "*" not in origins:
+    origins.append("http://localhost:5173")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[frontend_url],
-    allow_credentials=True,
+    allow_origins=origins if "*" not in origins else ["*"],
+    allow_credentials=True if "*" not in origins else False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
