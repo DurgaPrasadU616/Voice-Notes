@@ -1,5 +1,22 @@
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+async function parseErrorResponse(response) {
+  try {
+    const errorData = await response.json();
+    if (errorData && errorData.detail) {
+      return typeof errorData.detail === 'string' 
+        ? errorData.detail 
+        : JSON.stringify(errorData.detail);
+    }
+  } catch {
+    // Non-JSON response body
+  }
+  if (response.status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+  return `HTTP error! status: ${response.status}`;
+}
+
 async function fetchWithRetry(url, options, maxRetries = 1, timeoutMs = 30000) {
   for (let i = 0; i <= maxRetries; i++) {
     const controller = new AbortController();
@@ -8,10 +25,8 @@ async function fetchWithRetry(url, options, maxRetries = 1, timeoutMs = 30000) {
       const response = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(id);
       if (!response.ok) {
-        if (response.status === 429) {
-          throw new Error("Too many requests. Please wait a moment and try again.");
-        }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorMsg = await parseErrorResponse(response);
+        throw new Error(errorMsg);
       }
       return await response.json();
     } catch (err) {

@@ -58,12 +58,77 @@ async def log_requests(request: Request, call_next):
         logger.error(f"Request failed: {req_id} - Latency: {process_time:.2f}ms - Error: {str(e)}")
         raise
 
-# Global Error Handler
+import openai
+from fastapi import HTTPException
+
+# OpenAI and Global Error Handlers
+@app.exception_handler(openai.AuthenticationError)
+async def openai_auth_error_handler(request: Request, exc: openai.AuthenticationError):
+    logger.error(f"OpenAI Authentication Error: {str(exc)}")
+    return JSONResponse(
+        status_code=401,
+        content={"detail": "OpenAI Authentication Failed: Invalid or missing API key. Please check your OPENAI_API_KEY in backend/.env"},
+    )
+
+@app.exception_handler(openai.RateLimitError)
+async def openai_rate_limit_handler(request: Request, exc: openai.RateLimitError):
+    logger.error(f"OpenAI Rate Limit Error: {str(exc)}")
+    return JSONResponse(
+        status_code=429,
+        content={"detail": "OpenAI rate limit or quota exceeded. Please check your OpenAI account billing."},
+    )
+
+@app.exception_handler(openai.OpenAIError)
+async def openai_error_handler(request: Request, exc: openai.OpenAIError):
+    logger.error(f"OpenAI API Error: {str(exc)}")
+    return JSONResponse(
+        status_code=502,
+        content={"detail": f"OpenAI Service Error: {str(exc)}"},
+    )
+
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+@app.exception_handler(StarletteHTTPException)
+async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail},
+    )
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    if isinstance(exc, (HTTPException, StarletteHTTPException)):
+        return JSONResponse(
+            status_code=exc.status_code,
+            content={"detail": exc.detail},
+        )
+    if isinstance(exc, openai.AuthenticationError):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "OpenAI Authentication Failed: Invalid or missing API key. Please check your OPENAI_API_KEY in backend/.env"},
+        )
+    if isinstance(exc, openai.RateLimitError):
+        return JSONResponse(
+            status_code=429,
+            content={"detail": "OpenAI rate limit or quota exceeded. Please check your OpenAI account billing."},
+        )
+    if isinstance(exc, openai.OpenAIError):
+        return JSONResponse(
+            status_code=502,
+            content={"detail": f"OpenAI Service Error: {str(exc)}"},
+        )
+    
+    logger.exception(f"Unhandled exception: {str(exc)}")
     return JSONResponse(
         status_code=500,
-        content={"detail": "An internal server error occurred."},
+        content={"detail": f"Internal server error: {str(exc)}"},
     )
 
 app.include_router(transcription.router, prefix="/api", tags=["transcription"])
