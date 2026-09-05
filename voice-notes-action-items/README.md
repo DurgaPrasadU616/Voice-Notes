@@ -1,6 +1,8 @@
 # Voice Notes → Action Items
 
-An AI-powered web application that converts unstructured voice notes into organized action items using OpenAI's Whisper and GPT-4o-mini.
+> 🌐 **Live Application:** [https://voice-notes-rouge-six.vercel.app/](https://voice-notes-rouge-six.vercel.app/)
+
+An AI-powered web application that converts unstructured voice notes into organized action items using Google Gemini and OpenAI.
 
 ## Project Structure
 

@@ -1,11 +1,14 @@
 # Voice Notes → Action Items
 
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel-success?style=for-the-badge&logo=vercel)](https://voice-notes-rouge-six.vercel.app/)
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)]()
-[![Python](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![Python](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![React](https://img.shields.io/badge/react-18.x-blue.svg)](https://reactjs.org/)
 
-An AI-powered application designed to streamline productivity by converting unstructured voice notes into structured, actionable tasks. Utilizing state-of-the-art Speech-to-Text and Large Language Models (LLMs), this application automatically extracts action items, identifies deadlines, assigns priorities, and generates concise summaries from natural speech.
+> 🌐 **Live Website:** [https://voice-notes-rouge-six.vercel.app/](https://voice-notes-rouge-six.vercel.app/)
+
+An AI-powered application designed to streamline productivity by converting unstructured voice notes into structured, actionable tasks. Utilizing state-of-the-art Speech-to-Text and Large Language Models (Google Gemini & OpenAI Whisper/GPT), this application automatically extracts action items, identifies deadlines, assigns priorities, and generates concise summaries from natural speech.
 
 ---
 
